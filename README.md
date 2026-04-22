@@ -1,144 +1,185 @@
-# BÀI 1 – PHÁ ÁN LỖI KẾT XUẤT GIAO DIỆN (THYMELEAF)
+# BÀI 2 – THIẾT KẾ TRANG DANH SÁCH MÓN ĂN ĐỘNG (THYMELEAF)
 
-## 1. Mô tả bài toán
+## 1. Mục tiêu
 
-Dự án ban đầu sử dụng JSP, sau đó lập trình viên cấu hình thêm Thymeleaf nhưng sai cách, dẫn đến:
-
-* Lỗi HTTP 500 hoặc 404
-* Giao diện không hiển thị
+* Sử dụng Thymeleaf Standard Dialect để hiển thị dữ liệu từ Model
+* Áp dụng các biểu thức: th:each, th:if, th:unless
+* Xử lý điều kiện hiển thị và dữ liệu rỗng
 
 ---
 
-## 2. Phân tích lỗi cấu hình
+## 2. Thiết kế Model
 
-### ❌ Lỗi 1: Sai thư mục template (prefix)
+### 📄 Dish.java
 
 ```java
-resolver.setPrefix("/WEB-INF/views");
-```
+public class Dish {
+    private int id;
+    private String name;
+    private double price;
+    private boolean isAvailable;
 
-* Sai vì Thymeleaf mặc định sử dụng thư mục:
+    public Dish(int id, String name, double price, boolean isAvailable) {
+        this.id = id;
+        this.name = name;
+        this.price = price;
+        this.isAvailable = isAvailable;
+    }
 
-```
-/WEB-INF/templates/
+    public int getId() { return id; }
+    public String getName() { return name; }
+    public double getPrice() { return price; }
+    public boolean isAvailable() { return isAvailable; }
+}
 ```
 
 ---
 
-### ❌ Lỗi 2: Sai định dạng file (suffix)
+## 3. Phân tích luồng Input / Output
+
+### Input:
+
+* Người dùng truy cập: `/bai2/dishes`
+
+### Xử lý:
+
+* Controller nhận request
+* Gọi Service để lấy danh sách món ăn
+
+### Output:
+
+* Controller đưa dữ liệu vào Model (key: "dishes")
+* Thymeleaf render dữ liệu ra HTML
+
+### Sơ đồ:
+
+Client → Controller → Service → List<Dish> → Model → View (Thymeleaf) → HTML → Client
+
+---
+
+## 4. Service xử lý dữ liệu
 
 ```java
-resolver.setSuffix(".jsp");
-```
+@Service
+public class DishService {
 
-* Sai vì Thymeleaf không xử lý JSP
-* Đúng phải là:
-
-```
-.html
+    public List<Dish> getAllDishes() {
+        return List.of(
+                new Dish(1, "Phở bò", 50000, true),
+                new Dish(2, "Bún chả", 45000, false),
+                new Dish(3, "Cơm tấm", 40000, true)
+        );
+    }
+}
 ```
 
 ---
 
-## 3. Nguyên nhân
-
-* Thymeleaf là template engine xử lý file HTML
-* JSP là công nghệ khác, không tương thích trực tiếp với Thymeleaf
-* Việc cấu hình sai prefix và suffix khiến hệ thống không tìm thấy view hợp lệ
-
----
-
-## 4. Cách khắc phục
-
-### ✅ Cấu hình đúng `SpringResourceTemplateResolver`
+## 5. Controller
 
 ```java
-resolver.setPrefix("/WEB-INF/templates/");
-resolver.setSuffix(".html");
-resolver.setCharacterEncoding("UTF-8");
-```
-
----
-
-### ✅ Cấu hình đầy đủ trong `WebConfig.java`
-
-```java
-@Configuration
-@EnableWebMvc
-@ComponentScan(basePackages = "com.restaurant.bai1")
-public class WebConfig {
+@Controller
+public class DishController {
 
     @Autowired
-    private ApplicationContext applicationContext;
+    private DishService dishService;
 
-    @Bean
-    public SpringResourceTemplateResolver templateResolver() {
-        SpringResourceTemplateResolver resolver = new SpringResourceTemplateResolver();
-
-        resolver.setApplicationContext(applicationContext);
-        resolver.setPrefix("/WEB-INF/templates/");
-        resolver.setSuffix(".html");
-        resolver.setCharacterEncoding("UTF-8");
-
-        return resolver;
-    }
-
-    @Bean
-    public SpringTemplateEngine templateEngine() {
-        SpringTemplateEngine engine = new SpringTemplateEngine();
-        engine.setTemplateResolver(templateResolver());
-        return engine;
-    }
-
-    @Bean
-    public ThymeleafViewResolver viewResolver() {
-        ThymeleafViewResolver resolver = new ThymeleafViewResolver();
-        resolver.setTemplateEngine(templateEngine());
-        resolver.setCharacterEncoding("UTF-8");
-        return resolver;
+    @GetMapping("/bai2/dishes")
+    public String showDishes(Model model) {
+        model.addAttribute("dishes", dishService.getAllDishes());
+        return "dish-list";
     }
 }
 ```
 
 ---
 
-### ✅ Thêm `AppInit` để khởi tạo DispatcherServlet
+## 6. View – dish-list.html
 
-```java
-public class AppInit extends AbstractAnnotationConfigDispatcherServletInitializer {
+```html
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Danh sách món ăn</title>
+</head>
+<body>
 
-    @Override
-    protected Class<?>[] getRootConfigClasses() {
-        return null;
-    }
+<h2>Danh sách món ăn</h2>
 
-    @Override
-    protected Class<?>[] getServletConfigClasses() {
-        return new Class[]{WebConfig.class};
-    }
+<!-- Trường hợp danh sách rỗng -->
+<p th:if="${dishes == null or #lists.isEmpty(dishes)}">
+    Hiện tại nhà hàng đang cập nhật thực đơn, vui lòng quay lại sau
+</p>
 
-    @Override
-    protected String[] getServletMappings() {
-        return new String[]{"/"};
-    }
-}
+<!-- Hiển thị bảng nếu có dữ liệu -->
+<table border="1" th:unless="${dishes == null or #lists.isEmpty(dishes)}">
+    <tr>
+        <th>ID</th>
+        <th>Tên món</th>
+        <th>Giá</th>
+        <th>Trạng thái</th>
+    </tr>
+
+    <tr th:each="dish : ${dishes}">
+        <td th:text="${dish.id}"></td>
+        <td th:text="${dish.name}"></td>
+        <td th:text="${dish.price}"></td>
+
+        <!-- Hiển thị trạng thái + đổi màu -->
+        <td th:text="${dish.available ? 'Còn hàng' : 'Hết hàng'}"
+            th:style="${dish.available} ? '' : 'color:red'">
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>
 ```
 
 ---
 
-## 5. Kết quả sau khi sửa
+## 7. Xử lý logic hiển thị
 
-* Ứng dụng chạy thành công trên Tomcat
-* Truy cập: `http://localhost:8080/`
-* Hiển thị nội dung từ file `home.html`
-* Thymeleaf render đúng dữ liệu
+### ✔️ Lặp danh sách
+
+```html
+th:each="dish : ${dishes}"
+```
+
+### ✔️ Kiểm tra rỗng
+
+```html
+dishes == null or #lists.isEmpty(dishes)
+```
+
+### ✔️ Toán tử điều kiện
+
+```html
+${dish.available ? 'Còn hàng' : 'Hết hàng'}
+```
+
+### ✔️ Đổi màu khi hết hàng
+
+```html
+th:style="${dish.available} ? '' : 'color:red'"
+```
 
 ---
 
-## 6. Kết luận
+## 8. Kết quả đạt được
 
-* Cần phân biệt rõ giữa JSP và Thymeleaf
-* Cấu hình ViewResolver phải phù hợp với công nghệ sử dụng
-* Sai prefix hoặc suffix sẽ khiến hệ thống không tìm được view
+* Hiển thị danh sách món ăn động
+* Phân biệt trạng thái còn/hết hàng
+* Đổi màu cảnh báo khi hết hàng
+* Xử lý trường hợp dữ liệu rỗng
+
+---
+
+## 9. Kết luận
+
+* Thymeleaf giúp render dữ liệu động dễ dàng
+* Cần sử dụng đúng các biểu thức điều kiện và vòng lặp
+* Xử lý dữ liệu rỗng là yêu cầu quan trọng trong thực tế
 
 ---

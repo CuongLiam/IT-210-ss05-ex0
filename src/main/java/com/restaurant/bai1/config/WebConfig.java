@@ -12,7 +12,7 @@ import org.thymeleaf.spring6.view.ThymeleafViewResolver;
 
 @Configuration
 @EnableWebMvc
-@ComponentScan(basePackages = "com.restaurant.bai1")
+@ComponentScan(basePackages = "com.restaurant") // component scan
 public class WebConfig {
 
     @Autowired
