@@ -1,74 +1,107 @@
-# BÀI 2 – THIẾT KẾ TRANG DANH SÁCH MÓN ĂN ĐỘNG (THYMELEAF)
+# BÀI 3 – XÂY DỰNG MODULE CẬP NHẬT THÔNG TIN THỰC ĐƠN
 
 ## 1. Mục tiêu
 
-* Sử dụng Thymeleaf Standard Dialect để hiển thị dữ liệu từ Model
-* Áp dụng các biểu thức: th:each, th:if, th:unless
-* Xử lý điều kiện hiển thị và dữ liệu rỗng
+* Sử dụng Thymeleaf để thực hiện Data Binding
+* Áp dụng các biểu thức:
+
+    * `th:object`
+    * `th:field`
+    * `@{...}` (URL Expression)
+* Hiểu luồng dữ liệu từ View → Controller → Service → View
 
 ---
 
-## 2. Thiết kế Model
+## 2. Phân tích luồng dữ liệu (Data Flow)
 
-### 📄 Dish.java
+### Bước 1: Từ View danh sách (Bài 2)
 
-```java
-public class Dish {
-    private int id;
-    private String name;
-    private double price;
-    private boolean isAvailable;
+* Người dùng nhấn nút **"Chỉnh sửa"**
+* Gửi request:
 
-    public Dish(int id, String name, double price, boolean isAvailable) {
-        this.id = id;
-        this.name = name;
-        this.price = price;
-        this.isAvailable = isAvailable;
-    }
+```
+/bai3/edit/{id}
+```
 
-    public int getId() { return id; }
-    public String getName() { return name; }
-    public double getPrice() { return price; }
-    public boolean isAvailable() { return isAvailable; }
+---
+
+### Bước 2: Controller xử lý
+
+* Nhận `id` từ URL (`@PathVariable`)
+* Gọi Service để tìm món ăn tương ứng
+
+---
+
+### Bước 3: Xử lý dữ liệu
+
+#### ✔ Trường hợp hợp lệ:
+
+* Tìm thấy Dish
+* Đưa vào Model với key `"dish"`
+* Trả về view `edit-dish.html`
+
+#### ❌ Trường hợp lỗi:
+
+* Không tìm thấy Dish
+* Redirect về `/bai2/dishes`
+* Gửi thông báo lỗi:
+
+```
+"Không tìm thấy món ăn yêu cầu!"
+```
+
+---
+
+### Bước 4: View hiển thị
+
+* Thymeleaf nhận object Dish
+* Sử dụng:
+
+    * `th:object` → bind object
+    * `th:field` → đổ dữ liệu vào input
+
+---
+
+### Sơ đồ tổng thể:
+
+Client
+→ click Edit
+→ Controller (nhận id)
+→ Service (findById)
+→ Model (Dish)
+→ View (edit form)
+→ HTML render
+
+---
+
+## 3. Cấu hình quan trọng (Gradle)
+
+Để Spring nhận diện tên biến `@PathVariable`, cần bật:
+
+```gradle id="6cxn8m"
+tasks.withType(JavaCompile) {
+    options.compilerArgs += ['-parameters']
 }
 ```
 
 ---
 
-## 3. Phân tích luồng Input / Output
+## 4. Service
 
-### Input:
-
-* Người dùng truy cập: `/bai2/dishes`
-
-### Xử lý:
-
-* Controller nhận request
-* Gọi Service để lấy danh sách món ăn
-
-### Output:
-
-* Controller đưa dữ liệu vào Model (key: "dishes")
-* Thymeleaf render dữ liệu ra HTML
-
-### Sơ đồ:
-
-Client → Controller → Service → List<Dish> → Model → View (Thymeleaf) → HTML → Client
-
----
-
-## 4. Service xử lý dữ liệu
-
-```java
+```java id="9r7b5w"
 @Service
-public class DishService {
+public class AdminDishService {
 
-    public List<Dish> getAllDishes() {
-        return List.of(
-                new Dish(1, "Phở bò", 50000, true),
-                new Dish(2, "Bún chả", 45000, false),
-                new Dish(3, "Cơm tấm", 40000, true)
-        );
+    private final List<Dish> dishes = List.of(
+            new Dish(1, "Phở bò", 50000, true),
+            new Dish(2, "Bún chả", 45000, false),
+            new Dish(3, "Cơm tấm", 40000, true)
+    );
+
+    public Optional<Dish> findById(int id) {
+        return dishes.stream()
+                .filter(d -> d.getId() == id)
+                .findFirst();
     }
 }
 ```
@@ -77,61 +110,69 @@ public class DishService {
 
 ## 5. Controller
 
-```java
+```java id="yq6g1p"
 @Controller
-public class DishController {
+public class AdminDishController {
 
     @Autowired
-    private DishService dishService;
+    private AdminDishService service;
 
-    @GetMapping("/bai2/dishes")
-    public String showDishes(Model model) {
-        model.addAttribute("dishes", dishService.getAllDishes());
-        return "dish-list";
+    @GetMapping("/bai3/edit/{id}")
+    public String editDish(@PathVariable int id, Model model, RedirectAttributes ra) {
+
+        var dishOpt = service.findById(id);
+
+        if (dishOpt.isEmpty()) {
+            ra.addFlashAttribute("error", "Không tìm thấy món ăn yêu cầu!");
+            return "redirect:/bai2/dishes";
+        }
+
+        model.addAttribute("dish", dishOpt.get());
+        return "edit-dish";
     }
 }
 ```
 
 ---
 
-## 6. View – dish-list.html
+## 6. View – edit-dish.html
 
-```html
+```html id="w7g2fz"
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Danh sách món ăn</title>
+    <title>Chỉnh sửa món ăn</title>
 </head>
 <body>
 
-<h2>Danh sách món ăn</h2>
+<h2>Chỉnh sửa món ăn</h2>
 
-<!-- Trường hợp danh sách rỗng -->
-<p th:if="${dishes == null or #lists.isEmpty(dishes)}">
-    Hiện tại nhà hàng đang cập nhật thực đơn, vui lòng quay lại sau
-</p>
+<form th:object="${dish}">
 
-<!-- Hiển thị bảng nếu có dữ liệu -->
-<table border="1" th:unless="${dishes == null or #lists.isEmpty(dishes)}">
-    <tr>
-        <th>ID</th>
-        <th>Tên món</th>
-        <th>Giá</th>
-        <th>Trạng thái</th>
-    </tr>
+    <p>
+        ID:
+        <input type="text" th:field="*{id}" readonly />
+    </p>
 
-    <tr th:each="dish : ${dishes}">
-        <td th:text="${dish.id}"></td>
-        <td th:text="${dish.name}"></td>
-        <td th:text="${dish.price}"></td>
+    <p>
+        Tên món:
+        <input type="text" th:field="*{name}" />
+    </p>
 
-        <!-- Hiển thị trạng thái + đổi màu -->
-        <td th:text="${dish.available ? 'Còn hàng' : 'Hết hàng'}"
-            th:style="${dish.available} ? '' : 'color:red'">
-        </td>
-    </tr>
-</table>
+    <p>
+        Giá:
+        <input type="number" th:field="*{price}" />
+    </p>
+
+    <p>
+        Trạng thái:
+        <input type="checkbox" th:field="*{available}" /> Còn hàng
+    </p>
+
+    <button type="submit">Lưu</button>
+
+</form>
 
 </body>
 </html>
@@ -139,47 +180,75 @@ public class DishController {
 
 ---
 
-## 7. Xử lý logic hiển thị
+## 7. Cập nhật View Bài 2 (dish-list.html)
 
-### ✔️ Lặp danh sách
+### Thêm cột hành động:
 
-```html
-th:each="dish : ${dishes}"
-```
-
-### ✔️ Kiểm tra rỗng
-
-```html
-dishes == null or #lists.isEmpty(dishes)
-```
-
-### ✔️ Toán tử điều kiện
-
-```html
-${dish.available ? 'Còn hàng' : 'Hết hàng'}
-```
-
-### ✔️ Đổi màu khi hết hàng
-
-```html
-th:style="${dish.available} ? '' : 'color:red'"
+```html id="h7g8z3"
+<th>Hành động</th>
 ```
 
 ---
 
-## 8. Kết quả đạt được
+### Thêm nút chỉnh sửa:
 
-* Hiển thị danh sách món ăn động
-* Phân biệt trạng thái còn/hết hàng
-* Đổi màu cảnh báo khi hết hàng
-* Xử lý trường hợp dữ liệu rỗng
+```html id="q3r8vx"
+<td>
+    <a th:href="@{|/bai3/edit/${dish.id}|}">Chỉnh sửa</a>
+</td>
+```
 
 ---
 
-## 9. Kết luận
+## 8. Giải thích các biểu thức Thymeleaf
 
-* Thymeleaf giúp render dữ liệu động dễ dàng
-* Cần sử dụng đúng các biểu thức điều kiện và vòng lặp
-* Xử lý dữ liệu rỗng là yêu cầu quan trọng trong thực tế
+### ✔ th:object
+
+```html id="c0a9pl"
+<form th:object="${dish}">
+```
+
+→ Liên kết object từ Model với form
+
+---
+
+### ✔ th:field
+
+```html id="8yz0cj"
+th:field="*{name}"
+```
+
+→ Tự động:
+
+* gán value
+* gán name
+* hỗ trợ binding 2 chiều
+
+---
+
+### ✔ URL Expression
+
+```html id="a2l9dn"
+@{|/bai3/edit/${dish.id}|}
+```
+
+→ Tạo URL động theo ID
+
+---
+
+## 9. Kết quả đạt được
+
+* Điều hướng từ danh sách → trang chỉnh sửa
+* Tự động điền dữ liệu vào form
+* Xử lý lỗi khi ID không tồn tại
+* Sử dụng đúng Data Binding của Thymeleaf
+
+---
+
+## 10. Kết luận
+
+* Thymeleaf hỗ trợ binding dữ liệu mạnh mẽ
+* Cần hiểu rõ luồng dữ liệu trong MVC
+* Việc xử lý lỗi và redirect là rất quan trọng trong ứng dụng thực tế
 
 ---

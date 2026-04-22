@@ -20,6 +20,8 @@
         <th>Tên</th>
         <th>Giá</th>
         <th>Trạng thái</th>
+
+        <th>Hành động</th> <!-- Thêm ở bài 3 -->
     </tr>
 
     <tr th:each="dish : ${dishes}">
@@ -30,6 +32,11 @@
         <!-- Đổi màu nếu hết hàng -->
         <td th:text="${dish.available ? 'Còn hàng' : 'Hết hàng'}"
             th:style="${dish.available} ? '' : 'color:red'">
+        </td>
+
+<!--        Bài 3-->
+        <td>
+            <a th:href="@{|/bai3/edit/${dish.id}|}">Chỉnh sửa</a>
         </td>
     </tr>
 </table>

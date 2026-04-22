@@ -19,6 +19,7 @@ targetCompatibility = '21'
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
+    options.compilerArgs += ['-parameters'] //  đỡ bị Name for argument of type [int] not specified
 }
 
 dependencies {
