@@ -27,6 +27,18 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-api:${junitVersion}")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${junitVersion}")
 
+    // Spring Web MVC 7.0.6
+    implementation 'org.springframework:spring-webmvc:7.0.6'
+
+    // Thymeleaf Layout Dialect
+    implementation 'nz.net.ultraq.thymeleaf:thymeleaf-layout-dialect:3.4.0'
+
+    // Thymeleaf Spring 6 Integration
+    // Source: https://mvnrepository.com/artifact/org.thymeleaf/thymeleaf
+    implementation("org.thymeleaf:thymeleaf:3.1.2.RELEASE")
+
+    // Đừng quên Servlet API cho Jakarta EE 11
+    compileOnly 'jakarta.servlet:jakarta.servlet-api:6.1.0'
 }
 
 test {
