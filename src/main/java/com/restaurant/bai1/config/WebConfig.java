@@ -1,5 +1,6 @@
 package com.restaurant.bai1.config;
 
+import nz.net.ultraq.thymeleaf.layoutdialect.LayoutDialect;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -34,6 +35,8 @@ public class WebConfig {
     public SpringTemplateEngine templateEngine() {
         SpringTemplateEngine engine = new SpringTemplateEngine();
         engine.setTemplateResolver(templateResolver());
+
+        engine.addDialect(new LayoutDialect()); // thêm layout dialect để dùng thẻ layout:decorate
         return engine;
     }
 
